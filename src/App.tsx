@@ -26,37 +26,24 @@ function App() {
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
 
-    setIsListening(true);
-    setVoiceText("");
-
-    let hasEnded = false;
-    let minDurationReached = false;
-
-    // Sau 5 giây thì cho phép dừng nếu người dùng đã ngừng nói
-    const minDurationTimer = setTimeout(() => {
-      minDurationReached = true;
-      if (hasEnded) {
-        recognition.stop();
-      }
-    }, 5000);
+    recognition.onstart = () => {
+      setIsListening(true);
+      setVoiceText("");
+    };
 
     recognition.onresult = (event: any) => {
       const result = event.results[0][0].transcript;
       setVoiceText(result);
+      setIsListening(false);
     };
 
     recognition.onerror = (event: any) => {
       console.error("Recognition error:", event.error);
       setIsListening(false);
-      clearTimeout(minDurationTimer);
     };
 
     recognition.onend = () => {
-      hasEnded = true;
-      if (minDurationReached) {
-        setIsListening(false);
-      }
-      // Nếu chưa đủ 5 giây thì giữ nguyên `setIsListening(true)`
+      setIsListening(false);
     };
 
     recognition.start();
