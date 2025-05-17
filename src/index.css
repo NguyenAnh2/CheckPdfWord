@@ -1,0 +1,159 @@
+/* App.css */
+.container {
+  background-color: #f3f4f6;
+  /* gray-100 */
+  display         : flex;
+  align-items     : center;
+  justify-content : center;
+  height          : 100vh;
+  /* h-screen */
+}
+
+.card {
+  width           : 100%;
+  max-width       : 48rem;
+  /* max-w-3xl ~ 768px */
+  background-color: white;
+  padding         : 1.5rem;
+  display         : flex;
+  flex-direction  : column;
+  justify-content : center;
+  border-radius   : 0.5rem;
+  /* rounded-lg */
+  box-shadow      : 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  /* shadow-lg */
+}
+
+.title {
+  display        : flex;
+  justify-content: center;
+  align-items    : center;
+  font-size      : 2rem;
+  /* text-2xl */
+  font-weight    : 700;
+  /* font-bold */
+  margin-bottom  : 1rem;
+  /* mb-4 */
+}
+
+.file-section {
+  display        : flex;
+  align-items    : center;
+  justify-content: center;
+}
+
+.file-input {
+  border-radius   : 0.5rem;
+  /* rounded-lg */
+  box-shadow      : 0 1px 2px rgba(0, 0, 0, 0.05);
+  /* shadow-sm */
+  font-size       : 0.875rem;
+  /* text-sm */
+  color           : #111827;
+  /* text-gray-900 */
+  background-color: #8fc7ff;
+  /* bg-gray-50 */
+  font-weight     : 500;
+  outline         : none;
+  padding         : 12px 18px;
+  transition      : box-shadow 0.2s ease, border-color 0.2s ease;
+  cursor          : pointer;
+}
+
+.file-input:focus {
+  box-shadow  : 0 0 0 3px rgba(59, 130, 246, 0.5);
+  /* focus    :ring-blue-500 */
+  border-color: #3b82f6;
+  /* focus    :border-blue-500 */
+}
+
+.file-description {
+  user-select: none;
+  padding    : 1.25rem;
+  /* p-5 */
+}
+
+.file-description p {
+  font-size: 0.875rem;
+  /* text-sm */
+  color    : #4b5563;
+  /* text-gray-600 */
+  margin   : 0;
+}
+
+.voice-section {
+  margin-top    : 1.5rem;
+  /* mt-6 */
+  display       : flex;
+  flex-direction: column;
+  gap           : 1rem;
+  /* space-y-4 */
+}
+
+.btn-record {
+  padding         : 0.5rem 1rem;
+  /* px-4 py-2 */
+  background-color: #2563eb;
+  /* bg-blue-600 */
+  color           : white;
+  border-radius   : 0.375rem;
+  /* rounded */
+  border          : none;
+  cursor          : pointer;
+  font-size       : 1rem;
+  transition      : background-color 0.2s ease;
+}
+
+.btn-record:hover:not(:disabled) {
+  background-color: #1e40af;
+  /* hover        :bg-blue-700 */
+}
+
+.btn-record:disabled {
+  opacity: 0.6;
+  cursor : not-allowed;
+}
+
+.voice-text-box {
+  border          : 1px solid #d1d5db;
+  /* border */
+  border-radius   : 0.375rem;
+  /* rounded */
+  padding         : 1rem;
+  /* p-4 */
+  background-color: #f9fafb;
+  /* bg-gray-50 */
+  white-space     : pre-wrap;
+  font-size       : 0.875rem;
+  /* text-sm */
+}
+
+.pdf-text-box {
+  border          : 1px solid #d1d5db;
+  /* border */
+  border-radius   : 0.375rem;
+  /* rounded */
+  padding         : 1rem;
+  /* p-4 */
+  background-color: #f9fafb;
+  /* bg-gray-50 */
+  height          : 24rem;
+  /* h-96 ~ 384px */
+  overflow        : auto;
+  white-space     : pre-wrap;
+  font-size       : 0.875rem;
+  /* text-sm */
+  margin-top      : 1rem;
+}
+
+.highlight {
+  background-color: #f82a2a;
+  /* bg-blue-100 */
+  color           : #ffe5e5;
+  /* text-blue-800 */
+  padding         : 2px;
+  font-size       : 14px;
+  font-weight     : 500;
+
+}
