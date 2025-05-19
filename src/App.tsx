@@ -1,84 +1,144 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import mammoth from "mammoth";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf";
+import "./App.css"; // 👉 import file CSS thuần
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.js",
   import.meta.url
 ).toString();
 
+const MAX_VOICE_WORDS = 200;
+const MAX_PDF_WORDS = 3000;
+
 function App() {
   const [voiceText, setVoiceText] = useState("");
   const [isListening, setIsListening] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const recognitionRef = useRef<any>(null);
 
+  const [text, setText] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+      }
+    };
+  }, []);
+
   const startListening = () => {
+    setErrorMessage("");
     const SpeechRecognition =
       (window as any).SpeechRecognition ||
       (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      alert("Trình duyệt của bạn không hỗ trợ Speech Recognition.");
+      setErrorMessage("Trình duyệt không hỗ trợ Speech Recognition.");
       return;
     }
 
-    const recognition = new SpeechRecognition();
-    recognitionRef.current = recognition;
-    recognition.lang = "vi-VN";
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
+    try {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
 
-    recognition.onstart = () => {
-      setIsListening(true);
-      setVoiceText("");
-    };
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+      recognition.lang = "vi-VN";
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      recognition.continuous = true; // Cho phép ghi âm liên tục
 
-    recognition.onresult = (event: any) => {
-      const result = event.results[0][0].transcript;
-      setVoiceText(result);
-    };
+      recognition.onstart = () => {
+        setIsListening(true);
+        setVoiceText("");
+      };
 
-    recognition.onerror = (event: any) => {
-      console.error("Recognition error:", event.error);
-      setIsListening(false);
-    };
+      recognition.onresult = (event: any) => {
+        let result = "";
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            result += event.results[i][0].transcript + " ";
+          }
+        }
 
-    recognition.onend = () => {
-      setIsListening(false);
-    };
+        const words = result.trim().split(/\s+/);
+        if (words.length > MAX_VOICE_WORDS) {
+          result = words.slice(0, MAX_VOICE_WORDS).join(" ");
+        }
 
-    recognition.start();
+        setVoiceText((prev) => {
+          const combined = (prev + " " + result).trim();
+          const finalWords = combined.split(/\s+/);
+          return finalWords.length > MAX_VOICE_WORDS
+            ? finalWords.slice(0, MAX_VOICE_WORDS).join(" ")
+            : combined;
+        });
+      };
+
+      recognition.onerror = (event: any) => {
+        setErrorMessage(`Lỗi: ${event.error}`);
+      };
+
+      recognition.onend = () => {
+        // Không tự dừng khi kết thúc, để user tự bấm nút Stop
+      };
+
+      recognition.start();
+    } catch (error) {
+      setErrorMessage("Lỗi khởi tạo nhận dạng.");
+    }
   };
 
   const stopListening = () => {
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      setIsListening(false);
+      try {
+        recognitionRef.current.stop();
+      } catch {}
     }
+    setIsListening(false);
   };
-
-  const [text, setText] = useState("");
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsLoading(true);
+    setText("");
+
     if (file.type === "application/pdf") {
       const reader = new FileReader();
       reader.onload = async () => {
-        const typedarray = new Uint8Array(reader.result as ArrayBuffer);
-        const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
+        try {
+          const typedarray = new Uint8Array(reader.result as ArrayBuffer);
+          const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
 
-        let fullText = "";
+          let fullText = "";
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            const pageText = content.items
+              .map((item: any) => item.str)
+              .join(" ");
+            fullText += pageText + " ";
+          }
 
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          const pageText = content.items.map((item: any) => item.str).join(" ");
-          fullText += pageText + "\n\n";
+          const words = fullText.split(/\s+/);
+          if (words.length > MAX_PDF_WORDS) {
+            fullText =
+              words.slice(0, MAX_PDF_WORDS).join(" ") + "\n...(đã rút gọn)";
+          }
+
+          setText(fullText);
+        } catch {
+          setText("Lỗi xử lý file PDF.");
+        } finally {
+          setIsLoading(false);
         }
-
-        setText(fullText);
       };
       reader.readAsArrayBuffer(file);
     } else if (
@@ -88,33 +148,49 @@ function App() {
     ) {
       const reader = new FileReader();
       reader.onload = async () => {
-        const arrayBuffer = reader.result as ArrayBuffer;
-
         try {
+          const arrayBuffer = reader.result as ArrayBuffer;
           const result = await mammoth.extractRawText({ arrayBuffer });
-          setText(result.value);
-        } catch (err) {
-          console.error("Lỗi đọc file Word:", err);
+          const words = result.value.split(/\s+/);
+          let docText = result.value;
+          if (words.length > MAX_PDF_WORDS) {
+            docText =
+              words.slice(0, MAX_PDF_WORDS).join(" ") + "\n...(đã rút gọn)";
+          }
+          setText(docText);
+        } catch {
           setText("Không thể đọc file Word.");
+        } finally {
+          setIsLoading(false);
         }
       };
       reader.readAsArrayBuffer(file);
     } else {
-      setText("Chỉ hỗ trợ file PDF và Word (.docx).");
+      setText("Chỉ hỗ trợ file PDF hoặc Word (.docx).");
+      setIsLoading(false);
     }
   };
 
   function highlightMatchedWords(pdfText: string, voiceText: string) {
     if (!voiceText.trim()) return pdfText;
 
-    const voiceWords = voiceText.toLowerCase().split(/\s+/).filter(Boolean);
-    const voiceWordSet = new Set(voiceWords);
-    const wordsWithSeparators = pdfText.split(/(\s+)/);
+    const normalize = (str: string) =>
+      str
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[.,!?;:…]/g, "");
 
-    const result: React.ReactNode[] = wordsWithSeparators.map((word, index) => {
-      const cleanWord = word.trim().toLowerCase();
+    const voiceWords = voiceText.split(/\s+/).map(normalize).filter(Boolean);
+    const voiceSet = new Set(voiceWords);
 
-      if (voiceWordSet.has(cleanWord)) {
+    const wordsWithSpaces = pdfText.split(/(\s+)/);
+
+    return wordsWithSpaces.map((word, index) => {
+      const cleanedWord = normalize(word.trim());
+      if (!word.trim()) return word;
+
+      if (voiceSet.has(cleanedWord)) {
         return (
           <span key={index} className="highlight">
             {word}
@@ -124,36 +200,26 @@ function App() {
 
       return word;
     });
-
-    return result;
   }
 
   return (
     <div className="container">
       <div className="card">
-        <h1 className="title">Đọc file PDF</h1>
+        <h1 className="title">🗂️ Đọc PDF/Word & Nhận diện giọng nói</h1>
+
         <div className="file-section">
           <input
             type="file"
-            id="fileInput"
-            style={{ display: "none" }}
+            accept=".pdf,.docx"
             onChange={handleFileChange}
-            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          />
-          <div
-            onClick={() => {
-              const fileInput = document.getElementById(
-                "fileInput"
-              ) as HTMLInputElement;
-              fileInput?.click();
-            }}
             className="file-input"
-          >
-            Chọn file
-          </div>
-          <div className="file-description">
-            <p>Chọn file PDF hoặc Word để đọc nội dung.</p>
-          </div>
+          />
+        </div>
+
+        <div className="file-description">
+          <p>
+            Chọn file PDF hoặc Word để hiển thị và so sánh nội dung giọng nói.
+          </p>
         </div>
 
         <div className="voice-section">
@@ -161,28 +227,34 @@ function App() {
             <button
               onClick={startListening}
               disabled={isListening}
-              className="btn btn-mic"
-              title="Ghi âm"
+              className="btn-mic"
             >
               🎤
             </button>
             <button
               onClick={stopListening}
               disabled={!isListening}
-              className="btn btn-stop"
-              title="Dừng ghi"
+              className="btn-stop"
             >
-              ❌
+              ⛔
             </button>
           </div>
 
+          {errorMessage && <p className="error-message">{errorMessage}</p>}
+
           <div className="voice-text-box">
-            <strong>Văn bản từ giọng nói:</strong>
-            <div>{voiceText || "Chưa có dữ liệu."}</div>
+            <strong>🎧 Văn bản giọng nói:</strong>
+            <p>{voiceText || "(chưa có)"}</p>
           </div>
         </div>
+
         <div className="pdf-text-box">
-          {text ? highlightMatchedWords(text, voiceText) : "Chưa có nội dung."}
+          <strong className="mb4">📄 Văn bản từ file:</strong>
+          <div className="mt8">
+            {isLoading
+              ? "Đang xử lý..."
+              : highlightMatchedWords(text, voiceText)}
+          </div>
         </div>
       </div>
     </div>
