@@ -217,9 +217,9 @@ function App() {
         </div>
 
         <div className="file-description">
-          <p>
+          <h5 style={{display: "flex", justifyContent: "center"}}>
             Chọn file PDF hoặc Word để hiển thị và so sánh nội dung giọng nói.
-          </p>
+          </h5>
         </div>
 
         <div className="voice-section">
@@ -242,19 +242,38 @@ function App() {
 
           {errorMessage && <p className="error-message">{errorMessage}</p>}
 
-          <div className="voice-text-box">
-            <strong>🎧 Văn bản giọng nói:</strong>
-            <p>{voiceText || "(chưa có)"}</p>
-          </div>
+          {voiceText ? (
+            <div className="voice-text-box">
+              <strong>🎧 Văn bản giọng nói:</strong>
+              <p>{voiceText}</p>
+            </div>
+          ) : (
+            <div className="voice-text-box">Chưa có văn bản giọng nói</div>
+          )}
         </div>
 
-        <div className="pdf-text-box">
-          <strong className="mb4">📄 Văn bản từ file:</strong>
-          <div className="mt8">
-            {isLoading
-              ? "Đang xử lý..."
-              : highlightMatchedWords(text, voiceText)}
-          </div>
+        <div className="file-description">
+          {voiceText ? (
+            <div className="highlight-preview">
+              <strong>Kết quả đối chiếu giọng nói:</strong>
+              <div className="highlight-box">
+                {highlightMatchedWords(text, voiceText)}
+              </div>
+            </div>
+          ) : (
+            <div
+              style={{ padding: "4px", fontSize: "16px", fontWeight: "bold" }}
+            >
+              Voice để đối chiếu kết quả.
+            </div>
+          )}
+          <h3>Chỉnh sửa văn bản tại đây để so sánh</h3>
+          <textarea
+            placeholder="Nhập một đoạn văn từ file để so sánh"
+            className="text-override-box"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
         </div>
       </div>
     </div>
