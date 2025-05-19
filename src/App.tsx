@@ -18,7 +18,6 @@ function App() {
   const recognitionRef = useRef<any>(null);
 
   const [text, setText] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -107,7 +106,6 @@ function App() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsLoading(true);
     setText("");
 
     if (file.type === "application/pdf") {
@@ -137,7 +135,6 @@ function App() {
         } catch {
           setText("Lỗi xử lý file PDF.");
         } finally {
-          setIsLoading(false);
         }
       };
       reader.readAsArrayBuffer(file);
@@ -161,13 +158,11 @@ function App() {
         } catch {
           setText("Không thể đọc file Word.");
         } finally {
-          setIsLoading(false);
         }
       };
       reader.readAsArrayBuffer(file);
     } else {
       setText("Chỉ hỗ trợ file PDF hoặc Word (.docx).");
-      setIsLoading(false);
     }
   };
 
@@ -217,7 +212,7 @@ function App() {
         </div>
 
         <div className="file-description">
-          <h5 style={{display: "flex", justifyContent: "center"}}>
+          <h5 style={{ display: "flex", justifyContent: "center" }}>
             Chọn file PDF hoặc Word để hiển thị và so sánh nội dung giọng nói.
           </h5>
         </div>
