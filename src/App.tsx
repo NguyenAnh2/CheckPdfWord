@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import mammoth from "mammoth";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf";
 
@@ -10,6 +10,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 function App() {
   const [voiceText, setVoiceText] = useState("");
   const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
 
   const startListening = () => {
     const SpeechRecognition =
@@ -22,6 +23,7 @@ function App() {
     }
 
     const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
     recognition.lang = "vi-VN";
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
@@ -34,7 +36,6 @@ function App() {
     recognition.onresult = (event: any) => {
       const result = event.results[0][0].transcript;
       setVoiceText(result);
-      setIsListening(false);
     };
 
     recognition.onerror = (event: any) => {
@@ -49,6 +50,13 @@ function App() {
     recognition.start();
   };
 
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+  };
+
   const [text, setText] = useState("");
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -56,7 +64,6 @@ function App() {
     if (!file) return;
 
     if (file.type === "application/pdf") {
-      // Giữ nguyên đoạn đọc PDF của bạn
       const reader = new FileReader();
       reader.onload = async () => {
         const typedarray = new Uint8Array(reader.result as ArrayBuffer);
@@ -79,14 +86,13 @@ function App() {
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
       file.name.endsWith(".docx")
     ) {
-      // Đọc file Word
       const reader = new FileReader();
       reader.onload = async () => {
         const arrayBuffer = reader.result as ArrayBuffer;
 
         try {
           const result = await mammoth.extractRawText({ arrayBuffer });
-          setText(result.value); // result.value chứa toàn bộ text thuần
+          setText(result.value);
         } catch (err) {
           console.error("Lỗi đọc file Word:", err);
           setText("Không thể đọc file Word.");
@@ -101,11 +107,9 @@ function App() {
   function highlightMatchedWords(pdfText: string, voiceText: string) {
     if (!voiceText.trim()) return pdfText;
 
-    const voiceWords = voiceText.toLowerCase().split(/\s+/).filter(Boolean); // Loại bỏ khoảng trắng thừa
-
-    const voiceWordSet = new Set(voiceWords); // Dễ tra cứu
-
-    const wordsWithSeparators = pdfText.split(/(\s+)/); // Giữ cả dấu cách
+    const voiceWords = voiceText.toLowerCase().split(/\s+/).filter(Boolean);
+    const voiceWordSet = new Set(voiceWords);
+    const wordsWithSeparators = pdfText.split(/(\s+)/);
 
     const result: React.ReactNode[] = wordsWithSeparators.map((word, index) => {
       const cleanWord = word.trim().toLowerCase();
@@ -125,7 +129,6 @@ function App() {
   }
 
   return (
-    // JSX:
     <div className="container">
       <div className="card">
         <h1 className="title">Đọc file PDF</h1>
@@ -149,17 +152,29 @@ function App() {
             Chọn file
           </div>
           <div className="file-description">
-            <p>Chọn file PDF để đọc nội dung.</p>
+            <p>Chọn file PDF hoặc Word để đọc nội dung.</p>
           </div>
         </div>
+
         <div className="voice-section">
-          <button
-            onClick={startListening}
-            disabled={isListening}
-            className="btn-record"
-          >
-            {isListening ? "Đang ghi..." : "Ghi âm & chuyển thành văn bản"}
-          </button>
+          <div className="btn-group">
+            <button
+              onClick={startListening}
+              disabled={isListening}
+              className="btn btn-mic"
+              title="Ghi âm"
+            >
+              🎤
+            </button>
+            <button
+              onClick={stopListening}
+              disabled={!isListening}
+              className="btn btn-stop"
+              title="Dừng ghi"
+            >
+              ❌
+            </button>
+          </div>
 
           <div className="voice-text-box">
             <strong>Văn bản từ giọng nói:</strong>
