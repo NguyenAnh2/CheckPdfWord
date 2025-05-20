@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  pdf-reader-ui:
+    build:
+      context: .   # Thư mục chứa Dockerfile và dist/
+      dockerfile: Dockerfile
+    container_name: pdf-reader-ui-container
+    ports:
+      - "8080:80"
+    restart: unless-stopped

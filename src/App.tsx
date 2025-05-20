@@ -1,15 +1,15 @@
 import { useRef, useState, useEffect } from "react";
 import mammoth from "mammoth";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf";
-import "./App.css"; // 👉 import file CSS thuần
+import "./App.css";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.js",
   import.meta.url
 ).toString();
 
-const MAX_VOICE_WORDS = 200;
-const MAX_PDF_WORDS = 3000;
+const MAX_VOICE_WORDS = 500;
+const MAX_PDF_WORDS = 5000;
 
 function App() {
   const [voiceText, setVoiceText] = useState("");
@@ -29,6 +29,9 @@ function App() {
     };
   }, []);
 
+  // Add a ref to track if we should be listening
+  const shouldBeListeningRef = useRef(false);
+  
   const startListening = () => {
     setErrorMessage("");
     const SpeechRecognition =
@@ -40,64 +43,125 @@ function App() {
       return;
     }
 
-    try {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-
-      const recognition = new SpeechRecognition();
-      recognitionRef.current = recognition;
-      recognition.lang = "vi-VN";
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-      recognition.continuous = true; // Cho phép ghi âm liên tục
-
-      recognition.onstart = () => {
-        setIsListening(true);
-        setVoiceText("");
-      };
-
-      recognition.onresult = (event: any) => {
-        let result = "";
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            result += event.results[i][0].transcript + " ";
+    // Set our ref to indicate we should be listening
+    shouldBeListeningRef.current = true;
+    setIsListening(true);
+    setVoiceText("");
+    
+    const setupAndStartRecognition = () => {
+      try {
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.stop();
+          } catch {}
+        }
+  
+        const recognition = new SpeechRecognition();
+        recognitionRef.current = recognition;
+        recognition.lang = "vi-VN";
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+        recognition.continuous = true; // Cho phép ghi âm liên tục
+  
+        recognition.onstart = () => {
+          setIsListening(true);
+          console.log("Recognition started");
+        };
+  
+        recognition.onresult = (event: any) => {
+          let result = "";
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              result += event.results[i][0].transcript + " ";
+            }
           }
-        }
-
-        const words = result.trim().split(/\s+/);
-        if (words.length > MAX_VOICE_WORDS) {
-          result = words.slice(0, MAX_VOICE_WORDS).join(" ");
-        }
-
-        setVoiceText((prev) => {
-          const combined = (prev + " " + result).trim();
-          const finalWords = combined.split(/\s+/);
-          return finalWords.length > MAX_VOICE_WORDS
-            ? finalWords.slice(0, MAX_VOICE_WORDS).join(" ")
-            : combined;
-        });
-      };
-
-      recognition.onerror = (event: any) => {
-        setErrorMessage(`Lỗi: ${event.error}`);
-      };
-
-      recognition.onend = () => {
-        // Không tự dừng khi kết thúc, để user tự bấm nút Stop
-      };
-
-      recognition.start();
-    } catch (error) {
-      setErrorMessage("Lỗi khởi tạo nhận dạng.");
-    }
+  
+          const words = result.trim().split(/\s+/);
+          if (words.length > MAX_VOICE_WORDS) {
+            result = words.slice(0, MAX_VOICE_WORDS).join(" ");
+          }
+  
+          setVoiceText((prev) => {
+            const combined = (prev + " " + result).trim();
+            const finalWords = combined.split(/\s+/);
+            return finalWords.length > MAX_VOICE_WORDS
+              ? finalWords.slice(0, MAX_VOICE_WORDS).join(" ")
+              : combined;
+          });
+        };
+  
+        recognition.onerror = (event: any) => {
+          console.log(`Recognition error: ${event.error}`);
+          
+          // For no-speech errors, continue listening without showing error
+          if (event.error === 'no-speech') {
+            // Do nothing, this is expected during silence
+          } else {
+            setErrorMessage(`Lỗi: ${event.error}`);
+          }
+          
+          // Don't stop listening on errors, we'll restart in onend
+        };
+  
+        // Critical part: always restart if we should be listening
+        recognition.onend = () => {
+          console.log("Recognition ended, checking if should restart");
+          
+          // Only restart if user hasn't clicked stop
+          if (shouldBeListeningRef.current) {
+            console.log("Restarting recognition...");
+            // Small delay before restarting to prevent rapid cycling
+            setTimeout(() => {
+              if (shouldBeListeningRef.current) {
+                try {
+                  recognition.start();
+                  console.log("Recognition restarted successfully");
+                } catch (error) {
+                  console.error("Failed to restart recognition", error);
+                  
+                  // If we can't restart, try one more time after a longer delay
+                  setTimeout(() => {
+                    if (shouldBeListeningRef.current) {
+                      try {
+                        setupAndStartRecognition();
+                      } catch (finalError) {
+                        shouldBeListeningRef.current = false;
+                        setIsListening(false);
+                        setErrorMessage("Không thể tiếp tục ghi âm sau nhiều lần thử. Vui lòng thử lại.");
+                      }
+                    }
+                  }, 1000);
+                }
+              }
+            }, 300);
+          } else {
+            setIsListening(false);
+          }
+        };
+  
+        recognition.start();
+      } catch (error) {
+        console.error("Setup recognition error:", error);
+        setErrorMessage("Lỗi khởi tạo nhận dạng.");
+        shouldBeListeningRef.current = false;
+        setIsListening(false);
+      }
+    };
+    
+    // Start the recognition process
+    setupAndStartRecognition();
   };
 
   const stopListening = () => {
+    // Set our ref to indicate we should stop listening
+    shouldBeListeningRef.current = false;
+    
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
-      } catch {}
+      } catch (e) {
+        console.error("Error stopping recognition:", e);
+      }
     }
     setIsListening(false);
   };
@@ -134,7 +198,6 @@ function App() {
           setText(fullText);
         } catch {
           setText("Lỗi xử lý file PDF.");
-        } finally {
         }
       };
       reader.readAsArrayBuffer(file);
@@ -157,7 +220,6 @@ function App() {
           setText(docText);
         } catch {
           setText("Không thể đọc file Word.");
-        } finally {
         }
       };
       reader.readAsArrayBuffer(file);
@@ -236,6 +298,12 @@ function App() {
           </div>
 
           {errorMessage && <p className="error-message">{errorMessage}</p>}
+
+          {isListening && (
+            <p className="recording-status">
+              🔴 Đang ghi âm
+            </p>
+          )}
 
           {voiceText ? (
             <div className="voice-text-box">
