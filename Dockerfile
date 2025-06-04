@@ -1,5 +1,6 @@
 # Stage 1: Build
-FROM node:18 AS builder
+FROM node:18-alpine AS builder
+FROM nginx:stable-alpine
 
 # Working directory chính xác
 WORKDIR /app
@@ -23,10 +24,9 @@ RUN npm install
 RUN npm run build
 
 # Stage 2: Serve với nginx
-FROM nginx:stable-alpine
-
 COPY ./dist /usr/share/nginx/html
 
 EXPOSE 80
 
+# nginx -g daemon off;
 CMD ["nginx", "-g", "daemon off;"]
